@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := help
 
 COMPOSE_FILE := deploy/docker-compose.yml
+MIGRATE_IMAGE := migrate/migrate:v4.19.1
 
-.PHONY: help fmt vet test tidy up down clean ps logs proto-lint proto-fmt proto-gen
+.PHONY: help fmt vet test tidy up down clean ps logs proto-lint proto-fmt proto-gen migrate
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -42,3 +43,16 @@ proto-fmt: ## Format proto files
 
 proto-gen: ## Generate Go code from proto files
 	go tool buf generate
+
+migrate: ## Apply migrations and seeds (use s=<service>)
+	docker run --rm --network thebattleroyale_default \
+		-v $(CURDIR)/services/$(s)/db:/db:ro \
+		$(MIGRATE_IMAGE) \
+		-path /db/migrations \
+		-database "postgres://$(s):$(s)@postgres:5432/$(s)?sslmode=disable" up
+	# x-migrations-table distinto: la versión de semillas no comparte historial con la del esquema.
+	docker run --rm --network thebattleroyale_default \
+		-v $(CURDIR)/services/$(s)/db:/db:ro \
+		$(MIGRATE_IMAGE) \
+		-path /db/seed \
+		-database "postgres://$(s):$(s)@postgres:5432/$(s)?sslmode=disable&x-migrations-table=schema_seeds" up
