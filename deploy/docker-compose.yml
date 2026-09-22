@@ -10,7 +10,7 @@ services:
   #   - Desde tu máquina (servicios Go en desarrollo) → localhost:9092
   #   - Desde otro contenedor (consola, servicios)    → kafka:19092
   #
-  # Por qué dos: "kafka" solo existe dentro de la red de Docker y "localhost" 
+  # Por qué dos: "kafka" solo existe dentro de la red de Docker y "localhost"
   # dentro de un contenedor es el propio contenedor. Cada lado necesita la suya.
   # ───────────────────────────────────────────────────────────────────────
   kafka:
@@ -81,7 +81,7 @@ services:
       start_period: 30s # margen de arranque sin contar fallos
 
   # ───────────────────────────────────────────────────────────────────────
-  # CONSOLA WEB · Redpanda Console → http://localhost:8080
+  # KAFKA CONSOLA WEB · Redpanda Console → http://localhost:8080
   # Topics, particiones, mensajes con clave y offset, consumer groups y lag.
   # Funciona con cualquier Kafka, no solo con Redpanda.
   # ───────────────────────────────────────────────────────────────────────
@@ -97,5 +97,49 @@ services:
     environment:
       KAFKA_BROKERS: kafka:19092 # Es un contenedor: usa el listener interno, no localhost.
 
+  # ───────────────────────────────────────────────────────────────────────
+  # POSTGRES · una base de datos por servicio, cada una con su propio dueño
+  # ───────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:18.6 # versión fijada: nunca latest
+    hostname: postgres
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres # superusuario, solo para administración local
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      # Desde la 18, el VOLUME documentado es el directorio padre, no
+      # .../data: la imagen guarda cada versión mayor en su propio subdirectorio.
+      - postgres_data:/var/lib/postgresql
+      # Scripts de inicialización: solo se ejecutan con el volumen vacío.
+      # Si cambias init.sql después del primer arranque, hace falta `make clean`.
+      - ./postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ───────────────────────────────────────────────────────────────────────
+  # REDIS · caché, sin persistencia
+  # ───────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:8.8.3 # versión fijada: nunca latest
+    hostname: redis
+    container_name: redis
+    command: redis-server --save "" --appendonly no # sin RDB ni AOF: es una caché
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
 volumes:
   kafka_data:
+  postgres_data:
