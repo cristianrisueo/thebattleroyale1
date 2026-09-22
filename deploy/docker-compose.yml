@@ -1,0 +1,101 @@
+# Infraestructura local de The Battle Royale.
+
+name: thebattleroyale # Nombre del proyecto en Compose.
+
+services:
+  # ───────────────────────────────────────────────────────────────────────
+  # KAFKA · un único nodo
+  #
+  # Direcciones para conectarse:
+  #   - Desde tu máquina (servicios Go en desarrollo) → localhost:9092
+  #   - Desde otro contenedor (consola, servicios)    → kafka:19092
+  #
+  # Por qué dos: "kafka" solo existe dentro de la red de Docker y "localhost" 
+  # dentro de un contenedor es el propio contenedor. Cada lado necesita la suya.
+  # ───────────────────────────────────────────────────────────────────────
+  kafka:
+    image: apache/kafka:4.3.1 # versión fijada: nunca latest
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9092:9092" # solo el listener externo sale al host
+    environment:
+      # ── Identidad y rol ──
+      KAFKA_NODE_ID: 1
+      # Un solo proceso hace de broker (guarda mensajes) y de controller
+      # (gestiona metadatos del clúster). En producción van separados.
+      KAFKA_PROCESS_ROLES: broker,controller
+      # ID del clúster. Fijo para que el volumen sea reutilizable entre
+      # reinicios; si cambia con datos existentes, Kafka no arranca.
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+
+      # ── Listeners ──
+      # Dónde escucha el broker (nombre://host:puerto).
+      #   PLAINTEXT       :19092  tráfico entre contenedores
+      #   PLAINTEXT_HOST  :9092   tráfico desde tu máquina
+      #   CONTROLLER      :9093   consenso KRaft, uso interno de Kafka
+      KAFKA_LISTENERS: PLAINTEXT://:19092,PLAINTEXT_HOST://:9092,CONTROLLER://:9093
+      # Qué dirección se anuncia a los clientes de cada listener.
+      # El controller no se anuncia: los clientes nunca hablan con él.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092
+      # Los nombres de listener son etiquetas libres; aquí se dice qué
+      # protocolo usa cada una. Todo sin cifrar ni autenticar: es local.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # Listener para tráfico entre brokers (irrelevante con uno solo,
+      # pero obligatorio declararlo).
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Cuál de los listeners es el del controller.
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Quién vota en el consenso KRaft: formato id@host:puerto.
+      # Con un solo nodo, vota él mismo.
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # ── Replicación de los topics internos ──
+      # Por defecto Kafka exige 3 réplicas. Con un broker no se pueden
+      # crear, y sin __consumer_offsets los consumer groups no funcionan.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # __consumer_offsets
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # __transaction_state
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 # réplicas mínimas en sync
+
+      # ── Topics ──
+      # Nada de crear topics al vuelo: una errata en un nombre crearía un
+      # topic fantasma. Los topics se crean explícitamente, como contratos.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+      # ── Almacenamiento ──
+      # Dónde escribe Kafka sus logs de datos (el default de la imagen es
+      # /tmp). Debe coincidir con el punto de montaje del volumen.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data # sobrevive a make down, no a make clean
+    healthcheck:
+      # "Sano" = el broker responde peticiones, no solo que el proceso vive.
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:19092",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s # margen de arranque sin contar fallos
+
+  # ───────────────────────────────────────────────────────────────────────
+  # CONSOLA WEB · Redpanda Console → http://localhost:8080
+  # Topics, particiones, mensajes con clave y offset, consumer groups y lag.
+  # Funciona con cualquier Kafka, no solo con Redpanda.
+  # ───────────────────────────────────────────────────────────────────────
+  console:
+    image: docker.redpanda.com/redpandadata/console:v3.12.0
+    hostname: console
+    container_name: console
+    depends_on:
+      kafka:
+        condition: service_healthy # espera al healthcheck, no solo al arranque
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: kafka:19092 # Es un contenedor: usa el listener interno, no localhost.
+
+volumes:
+  kafka_data:
