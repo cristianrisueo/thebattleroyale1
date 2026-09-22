@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+// Catálogo: alumnos, armas y localizaciones del juego.
+package catalog.v1;
+
+option go_package = "github.com/cristianrisueo/thebattleroyale1/gen/catalog/v1;catalogv1";
+
+// Alumno participante: ID, nombre, fuerza, agilidad y resistencia 
+message Student {
+  string id = 1; // UUID
+  string name = 2;
+  int32 strength = 3; // 0-100
+  int32 agility = 4; // 0-100
+  int32 stamina = 5; // 0-100
+}
+
+// Arma: ID, nombre, daño y probabilidad de acierto.
+message Weapon {
+  string id = 1; // UUID
+  string name = 2;
+  int32 damage = 3;  // 0-100
+  int32 accuracy = 4; // 0-100
+}
+
+// Localización donde puede desarrollarse la batalla: ID, nombre y descripción.
+message Location {
+  string id = 1; // UUID
+  string name = 2;
+  string description = 3;
+}
+
+// Petición para obtener un alumno por id.
+message GetStudentRequest {
+  string id = 1; 
+}
+
+// Respuesta con el alumno solicitado.
+message GetStudentResponse {
+  Student student = 1;
+}
+
+// Petición para listar todos los alumnos.
+message ListStudentsRequest {}
+
+// Respuesta con todos los alumnos.
+message ListStudentsResponse {
+  repeated Student students = 1;
+}
+
+// Petición para obtener un arma por id.
+message GetWeaponRequest {
+  string id = 1;
+}
+
+// Respuesta con el arma solicitada.
+message GetWeaponResponse {
+  Weapon weapon = 1;
+}
+
+// Petición para listar todas las armas.
+message ListWeaponsRequest {}
+
+// Respuesta con todas las armas.
+message ListWeaponsResponse {
+  repeated Weapon weapons = 1;
+}
+
+// Petición para obtener una localización por id.
+message GetLocationRequest {
+  string id = 1;
+}
+
+// Respuesta con la localización solicitada.
+message GetLocationResponse {
+  Location location = 1;
+}
+
+// Petición para listar todas las localizaciones.
+message ListLocationsRequest {}
+
+// Respuesta con todas las localizaciones.
+message ListLocationsResponse {
+  repeated Location locations = 1;
+}
+
+// Servicio con todos los métodos de catálogo
+service CatalogService {
+  rpc GetStudent(GetStudentRequest) returns (GetStudentResponse); // Obtener un alumno por id.
+  rpc ListStudents(ListStudentsRequest) returns (ListStudentsResponse); // Listar todos los alumnos.
+  rpc GetWeapon(GetWeaponRequest) returns (GetWeaponResponse); // Obtener un arma por id.
+  rpc ListWeapons(ListWeaponsRequest) returns (ListWeaponsResponse); // Obtener todas las armas.
+  rpc GetLocation(GetLocationRequest) returns (GetLocationResponse); // Obtener una localización por id.
+  rpc ListLocations(ListLocationsRequest) returns (ListLocationsResponse); // Obtener todas las localizaciones.
+}
