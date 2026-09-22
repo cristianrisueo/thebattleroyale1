@@ -117,7 +117,7 @@ services:
       # Si cambias init.sql después del primer arranque, hace falta `make clean`.
       - ./postgres:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -U postgres"]
       interval: 10s
       timeout: 10s
       retries: 5
