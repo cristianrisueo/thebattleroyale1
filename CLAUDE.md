@@ -13,7 +13,7 @@ Monorepo de aprendizaje de microservicios en Go. El diseño se decide fuera de a
 ## Idioma
 
 - Inglés: código, identificadores, datos, logs y commits.
-- Español: comentarios en todos los ficheros (Go, SQL, `.proto`, YAML, Makefile). Breves: una línea por cada decisión no obvia. Nada de explicar lo evidente.
+- Español: comentarios en todos los ficheros (Go, SQL, `.proto`, YAML, Makefile). Breves: una única línea física por cada decisión no obvia, sin partir en varias líneas ni bloques tipo Parámetros/Retorno. Nada de explicar lo evidente.
 
 ## Repositorio
 
