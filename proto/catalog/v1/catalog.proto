@@ -5,7 +5,7 @@ package catalog.v1;
 
 option go_package = "github.com/cristianrisueo/thebattleroyale1/gen/catalog/v1;catalogv1";
 
-// Alumno participante: ID, nombre, fuerza, agilidad y resistencia 
+// Alumno participante: ID, nombre, fuerza, agilidad y resistencia
 message Student {
   string id = 1; // UUID
   string name = 2;
@@ -18,7 +18,7 @@ message Student {
 message Weapon {
   string id = 1; // UUID
   string name = 2;
-  int32 damage = 3;  // 0-100
+  int32 damage = 3; // vida que resta por impacto, 0-100 (100 = muerte de un golpe)
   int32 accuracy = 4; // 0-100
 }
 
@@ -31,7 +31,7 @@ message Location {
 
 // Petición para obtener un alumno por id.
 message GetStudentRequest {
-  string id = 1; 
+  string id = 1;
 }
 
 // Respuesta con el alumno solicitado.
