@@ -149,6 +149,8 @@ services:
     image: jaegertracing/jaeger:2.11.0 # versión fijada: nunca latest
     hostname: jaeger
     container_name: jaeger
+    environment:
+      OTEL_TRACES_SAMPLER: always_off # sin esto Jaeger se traza a sí mismo y aparece como servicio
     ports:
       - "4317:4317" # OTLP gRPC: aquí exportan los servicios
       - "16686:16686" # interfaz web

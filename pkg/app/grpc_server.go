@@ -63,6 +63,9 @@ func (s *GRPCServer) Run(ctx context.Context) error {
 		return fmt.Errorf("listening on %s: %w", s.addr, err)
 	}
 
+	// Anuncia el puerto ya reservado: desde aquí las conexiones entrantes esperan en cola a Serve
+	s.logger.Info("grpc server listening", "addr", s.addr)
+
 	// Sirve en otra goroutine porque Serve bloquea; el buffer evita que se quede colgada
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- s.server.Serve(lis) }()

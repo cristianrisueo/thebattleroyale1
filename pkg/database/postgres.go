@@ -30,7 +30,7 @@ func NewPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("creating pool: %w", err)
 	}
 
-	// Acota solo la comprobación de arranque, sin tocar el ctx del servicio
+	// Crea un contexto que se cancela en 5 segundos
 	pingCtx, cancel := context.WithTimeout(ctx, pingTimeout)
 	defer cancel()
 
