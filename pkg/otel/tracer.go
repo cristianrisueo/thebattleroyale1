@@ -16,13 +16,12 @@ import (
 //
 // Param - ctx: Contexto de arranque del servicio, usado solo para crear el exportador
 // Param - serviceName: Nombre con el que aparecen las trazas del servicio en Jaeger
-// Param - endpoint: Dirección host:puerto del colector OTLP gRPC, sin esquema y sin TLS
+// Param - endpoint: URL completa del colector OTLP gRPC, con esquema (http:// para conexión sin TLS)
 // Returns - func/error: La función de apagado, que vacía los lotes pendientes y debe llamarse al salir, o el error si falla el exportador
 func NewTracer(ctx context.Context, serviceName, endpoint string) (func(context.Context) error, error) {
 	// Crea el exportador sin conectar todavía: un colector caído no impide arrancar
 	exporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpointURL(endpoint),
 	)
 
 	// Falla si las opciones del exportador no son válidas
