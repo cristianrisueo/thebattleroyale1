@@ -1,10 +1,3 @@
-// Catalog sirve el catálogo de alumnos, armas y localizaciones por gRPC.
-//
-// Este fichero es el único del servicio que conoce a la vez la configuración,
-// la base de datos y el servidor: el resto del código recibe ya montado lo que
-// necesita. Todo lo genérico vive en pkg/; aquí solo queda el cableado propio
-// de catalog.
-
 package main
 
 import (
@@ -14,64 +7,94 @@ import (
 	"os"
 	"time"
 
+	catalogv1 "github.com/cristianrisueo/thebattleroyale1/gen/catalog/v1"
 	"github.com/cristianrisueo/thebattleroyale1/pkg/app"
 	"github.com/cristianrisueo/thebattleroyale1/pkg/database"
 	"github.com/cristianrisueo/thebattleroyale1/pkg/logger"
+	"github.com/cristianrisueo/thebattleroyale1/services/catalog/internal"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// shutdownTimeout es el margen que se le da al servidor gRPC para terminar las
-// RPC en curso antes de cortarlas en seco.
+// shutdownTimeout es el margen que se le da al servidor gRPC para terminar las RPC en curso
 const shutdownTimeout = 10 * time.Second
+
+// config agrupa los valores que el servicio lee del entorno al arrancar
+type config struct {
+	databaseURL string
+	grpcAddr    string
+}
 
 // main es el punto de entrada del servicio catalog
 func main() {
-	// El logger se crea antes que nada para que hasta un fallo de config se vea en el log.
+	// Crea el logger antes que nada para que hasta un fallo de configuración se vea en el log
 	log := logger.New("catalog")
 
-	// La lógica vive en run porque os.Exit no ejecuta los defer y el pool quedaría abierto.
+	// La lógica vive en run porque os.Exit no ejecuta los defer y el pool quedaría abierto
 	if err := run(log); err != nil {
 		log.Error("startup failed", "error", err)
 		os.Exit(1)
 	}
 }
 
-// run monta el servicio y bloquea hasta que termina de apagarse.
+// run monta el servicio y bloquea hasta que termina de apagarse
 //
-// El orden importa: cada dependencia se abre antes que quien la usa, y los
-// defer las cierran en orden inverso. Por eso el pool se cierra después de que
-// app.Run haya vuelto, cuando ya no queda ninguna RPC a medias que pudiera
-// encontrarse la base de datos cerrada debajo.
-//
-// La configuración se lee del entorno y no tiene valores por defecto: un
-// servicio que arranca contra la base de datos equivocada por un descuido es
-// peor que uno que no arranca.
+// Param - log: Logger raíz del servicio, compartido por todos los componentes
+// Returns - error: El primer fallo de arranque o de un componente, nil si todo se apagó limpio
 func run(log *slog.Logger) error {
 	ctx := context.Background()
 
-	// Falla si falta la URL de la base de datos.
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		return fmt.Errorf("missing DATABASE_URL")
+	// Lee la configuración del entorno y falla si falta algo
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
 	}
 
-	// Falla si falta la dirección del servidor gRPC.
-	grpcAddr := os.Getenv("GRPC_ADDR")
-	if grpcAddr == "" {
-		return fmt.Errorf("missing GRPC_ADDR")
-	}
-
-	// Un único pool para todo el servicio: lo comparten todos los handlers gRPC.
-	pool, err := database.NewPool(ctx, databaseURL)
+	// Un único pool para todo el servicio: lo comparten todas las RPC
+	pool, err := database.NewPool(ctx, cfg.databaseURL)
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}
 
-	// Cierra el pool cuando el servidor gRPC termina.
+	// Difiere el cierre del pool
 	defer pool.Close()
 
-	// Aún sin servicios propios registrados: eso llega con CatalogService.
-	grpcServer := app.NewGRPCServer(grpcAddr, log, shutdownTimeout)
+	// Monta el dominio: repositorio, servicio y handler gRPC, devuelve solo lo que
+	handler := createDependencies(pool)
 
-	// Bloquea hasta que llega una señal de parada y todos los componentes han recogido.
+	// Crea el servidor gRPC, que todavía no escucha
+	grpcServer := app.NewGRPCServer(cfg.grpcAddr, log, shutdownTimeout)
+
+	// Registra el handler antes de servir: hacerlo después provoca un pánico
+	catalogv1.RegisterCatalogServiceServer(grpcServer.Server(), handler)
+
+	// Bloquea hasta que llega una señal de parada y todos los componentes han recogido
 	return app.Run(ctx, log, grpcServer)
+}
+
+//* Funciones auxiliares para hacer más legible el método run
+
+// loadConfig lee de las variables del entorno la configuración del servicio
+func loadConfig() (config, error) {
+	// La URL de la base de datos no tiene valor por defecto: arrancar contra la equivocada es peor que no arrancar
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return config{}, fmt.Errorf("missing DATABASE_URL")
+	}
+
+	// La dirección del servidor gRPC tampoco tiene valor por defecto
+	grpcAddr := os.Getenv("GRPC_ADDR")
+	if grpcAddr == "" {
+		return config{}, fmt.Errorf("missing GRPC_ADDR")
+	}
+
+	return config{databaseURL: databaseURL, grpcAddr: grpcAddr}, nil
+}
+
+// createDependencies monta el dominio sobre el pool y devuelve el handler gRPC
+func createDependencies(pool *pgxpool.Pool) *internal.CatalogHandler {
+	// Cada capa recibe la de debajo: el handler no sabe que existe Postgres
+	repo := internal.NewCatalogRepository(pool)
+	svc := internal.NewCatalogService(repo)
+
+	return internal.NewCatalogHandler(svc)
 }

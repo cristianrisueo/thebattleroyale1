@@ -13,15 +13,10 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// Comprobación en compilación de que *GRPCServer sigue cumpliendo la interfaz Component.
+// Comprueba en compilación que *GRPCServer cumple Component
 var _ Component = (*GRPCServer)(nil)
 
-// GRPCServer es el Component que expone el servidor gRPC de un servicio.
-//
-// Trae de serie dos servicios estándar que no dependen del dominio: el health
-// check, que usan Kubernetes y los balanceadores para saber si mandar tráfico,
-// y reflection, que permite llamar al servidor con grpcurl sin pasarle los
-// .proto. Los servicios propios se registran desde fuera con Server().
+// GRPCServer representa el servidor gRPC de un servicio como Component
 type GRPCServer struct {
 	addr            string
 	logger          *slog.Logger
@@ -30,21 +25,16 @@ type GRPCServer struct {
 	health          *health.Server
 }
 
-// NewGRPCServer prepara el servidor, pero no escucha hasta que se llama a Run.
-//
-// Ese hueco entre construir y escuchar es deliberado: es cuando el servicio
-// registra sus propios servicios gRPC, que deben estar todos antes de aceptar
-// la primera petición.
+// NewGRPCServer crea el servidor gRPC con health check y reflection
 func NewGRPCServer(addr string, logger *slog.Logger, shutdownTimeout time.Duration, opts ...grpc.ServerOption) *GRPCServer {
 	server := grpc.NewServer(opts...)
 
+	// Registra el health check global, el que consultan Kubernetes y los balanceadores
 	healthServer := health.NewServer()
-
-	// Servicio "" = estado global del servidor, no el de un servicio concreto.
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(server, healthServer)
 
-	// Expone el catálogo de servicios y sus contratos para clientes como grpcurl.
+	// Permite llamar al servidor con grpcurl sin pasarle los .proto
 	reflection.Register(server)
 
 	return &GRPCServer{
@@ -56,59 +46,50 @@ func NewGRPCServer(addr string, logger *slog.Logger, shutdownTimeout time.Durati
 	}
 }
 
-// Server da acceso al *grpc.Server para registrar los servicios del dominio.
-//
-// Solo debe usarse antes de Run: registrar con el servidor ya sirviendo hace
-// que gRPC entre en pánico.
+// Server devuelve el *grpc.Server para registrar servicios antes de llamar a Run
 func (s *GRPCServer) Server() *grpc.Server {
 	return s.server
 }
 
-// Name identifica el componente en los logs de Run.
+// Name devuelve el nombre del componente en los logs
 func (s *GRPCServer) Name() string {
 	return "grpc-server"
 }
 
-// Run escucha y sirve hasta que ctx se cancela, y entonces apaga en dos tiempos.
-//
-// Primero GracefulStop, que deja de aceptar conexiones nuevas pero espera a que
-// terminen las RPC en curso, para no cortar una petición a medias. Como esa
-// espera no tiene límite y una RPC colgada dejaría el proceso sin apagarse
-// nunca, compite contra shutdownTimeout: si vence, Stop corta en seco.
-// Un apagado, gradual o forzado, devuelve nil; solo un fallo del propio
-// servidor devuelve error.
+// Run sirve hasta que ctx se cancela y apaga de forma gradual con un plazo máximo
 func (s *GRPCServer) Run(ctx context.Context) error {
 	lis, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", s.addr, err)
 	}
 
-	// Serve bloquea, así que va aparte; el buffer evita que la goroutine quede colgada.
+	// Sirve en otra goroutine porque Serve bloquea; el buffer evita que se quede colgada
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- s.server.Serve(lis) }()
 
-	// Gana el primero: si Serve muere solo, se devuelve el error sin esperar a ctx.
+	// Espera a que Serve falle o a que llegue la orden de parar
 	select {
+	// Devuelve el fallo de Serve sin esperar a ctx
 	case err := <-serveErr:
 		return err
 	case <-ctx.Done():
 	}
 
-	// NOT_SERVING antes de empezar a cerrar: así el health check no miente durante el apagado.
+	// Marca NOT_SERVING antes de cerrar para que el health check no mienta durante el apagado
 	s.health.Shutdown()
 
-	// GracefulStop también bloquea, y aquí sí hay que poder rendirse.
+	// Lanza GracefulStop aparte para poder abandonarlo si se pasa del plazo
 	stopped := make(chan struct{})
 	go func() {
 		s.server.GracefulStop()
 		close(stopped)
 	}()
 
+	// Espera a que terminen las RPC en curso o a que venza el plazo
 	select {
 	case <-stopped:
 		return nil
-
-	// Vencido el plazo, se cortan las RPC que sigan vivas: el proceso debe morir.
+	// Corta en seco las RPC que sigan vivas para que el proceso pueda morir
 	case <-time.After(s.shutdownTimeout):
 		s.logger.Warn("graceful stop timed out, forcing stop", "timeout", s.shutdownTimeout)
 		s.server.Stop()

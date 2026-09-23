@@ -17,17 +17,34 @@ Monorepo de aprendizaje de microservicios en Go. El diseño se decide fuera de a
 
 ## Comentarios
 
-Se escriben para quien lea el código dentro de seis meses sin recordar por qué se hizo así. Explican el porqué y el contrato, nunca lo que la línea ya dice.
+Los ficheros de `services/catalog/` son la referencia: cualquier código nuevo se comenta como ellos.
 
-**En paquetes, tipos y funciones exportadas** pueden ocupar varias líneas y deben cubrir, cuando aplique:
+**Funciones y métodos exportados:**
 
-- Qué problema resuelve la pieza y por qué existe aquí y no en otro sitio.
-- El contrato con quien la usa: si bloquea, qué significa cada valor devuelto, en qué orden hay que llamar a las cosas.
-- Las trampas que no se ven leyendo el código: lo que provoca un pánico, lo que puede colgarse, lo que se queda abierto si falta una llamada.
+```go
+// GetStudent devuelve el alumno con ese id
+//
+// Param - ctx: Contexto de la llamada gRPC, cancelado si el cliente se va o vence su deadline
+// Param - id: UUID ya validado por el servicio
+// Returns - Student/error: El alumno, o ErrNotFound si no existe ninguno con ese id
+```
 
-**Dentro de las funciones**, una única línea física por bloque de lógica, encima del bloque. Comenta cada bloque con lo que aporta o con la consecuencia de esa línea, no con su traducción al castellano. En un `select` o un `switch`, el comentario va en la rama que lo necesita, no encima del bloque entero.
+- Primera línea: qué hace, en tercera persona y sin punto final.
+- Línea de comentario vacía.
+- Una línea `Param - nombre: Descripción` por parámetro, en el orden de la firma, empezando en mayúscula. Los parámetros ignorados se documentan igual (`Param - _: La petición no tiene campos`).
+- Una línea `Returns - Tipo/error: Descripción` con qué se devuelve cuando va bien y qué errores concretos salen cuando no.
+- Cada línea explica el contrato (qué formato se espera, si puede llegar vacío, qué errores salen y cuándo), nunca el tipo que ya está en la firma.
+- Separación con espacios, nunca tabuladores.
 
-**Nunca**: comentarios que repiten la línea (`// incrementa i`), bloques tipo Parámetros/Retorno/Ejemplo, ni comentarios de relleno en líneas triviales.
+**Una sola línea**, misma forma, para todo lo demás: tipos, interfaces, structs, constructores, constantes, bloques de errores, métodos declarados dentro de una interfaz, aserciones de tipo (`var _ Service = ...`) y funciones auxiliares privadas.
+
+**Dentro de las funciones:** una línea encima de cada bloque de lógica, separando los bloques con línea en blanco. La llamada y su `if err != nil` son dos bloques distintos, cada uno con el suyo. En un `switch` o un `select`, el comentario va en cada rama, no encima del bloque.
+
+**Secciones:** dentro de un fichero largo, `//* Nombre de la sección` separa grupos de funciones (por ejemplo, `//* Implementación de la interfaz`).
+
+**Sin comentario de paquete.** Si alguna vez se pone, va pegado a la línea `package`, sin línea en blanco entre medias, o Go no lo reconoce como documentación.
+
+**Nunca:** comentarios que repiten la línea (`// incrementa i`), relleno en líneas triviales, ni párrafos de varias líneas explicando diseño. El porqué de una decisión cabe en la línea del bloque donde se aplica.
 
 ## Repositorio
 
