@@ -11,23 +11,31 @@ import (
 	"github.com/cristianrisueo/thebattleroyale1/pkg/app"
 	"github.com/cristianrisueo/thebattleroyale1/pkg/database"
 	"github.com/cristianrisueo/thebattleroyale1/pkg/logger"
+	"github.com/cristianrisueo/thebattleroyale1/pkg/otel"
 	"github.com/cristianrisueo/thebattleroyale1/services/catalog/internal"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
 )
 
 // shutdownTimeout es el margen que se le da al servidor gRPC para terminar las RPC en curso
-const shutdownTimeout = 10 * time.Second
+// tracerShutdownTimeout es el margen para vaciar los lotes de spans pendientes al apagar
+const (
+	shutdownTimeout       = 10 * time.Second
+	tracerShutdownTimeout = 5 * time.Second
+)
 
 // config agrupa los valores que el servicio lee del entorno al arrancar
 type config struct {
-	databaseURL string
-	grpcAddr    string
+	databaseURL  string
+	grpcAddr     string
+	otlpEndpoint string
 }
 
 // main es el punto de entrada del servicio catalog
 func main() {
 	// Crea el logger antes que nada para que hasta un fallo de configuración se vea en el log
-	log := logger.New("catalog")
+	log := logger.NewLogger("catalog")
 
 	// La lógica vive en run porque os.Exit no ejecuta los defer y el pool quedaría abierto
 	if err := run(log); err != nil {
@@ -49,6 +57,23 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	// Registra el tracer global antes que el pool para que otelpgx lo encuentre
+	shutdownTracer, err := otel.NewTracer(ctx, "catalog", cfg.otlpEndpoint)
+	if err != nil {
+		return fmt.Errorf("creating tracer: %w", err)
+	}
+
+	// Difiere el vaciado de spans con un ctx propio porque el del servicio ya estará cancelado
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), tracerShutdownTimeout)
+		defer cancel()
+
+		// Registra el fallo sin cambiar el error de salida: solo se pierden los últimos spans
+		if err := shutdownTracer(shutdownCtx); err != nil {
+			log.Error("tracer shutdown failed", "error", err)
+		}
+	}()
+
 	// Un único pool para todo el servicio: lo comparten todas las RPC
 	pool, err := database.NewPool(ctx, cfg.databaseURL)
 	if err != nil {
@@ -61,8 +86,10 @@ func run(log *slog.Logger) error {
 	// Monta el dominio: repositorio, servicio y handler gRPC, devuelve solo lo que
 	handler := createDependencies(pool)
 
-	// Crea el servidor gRPC, que todavía no escucha
-	grpcServer := app.NewGRPCServer(cfg.grpcAddr, log, shutdownTimeout)
+	// Crea el servidor gRPC, que todavía no escucha, con un span por cada RPC recibida
+	grpcServer := app.NewGRPCServer(cfg.grpcAddr, log, shutdownTimeout,
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
 
 	// Registra el handler antes de servir: hacerlo después provoca un pánico
 	catalogv1.RegisterCatalogServiceServer(grpcServer.Server(), handler)
@@ -87,7 +114,13 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("missing GRPC_ADDR")
 	}
 
-	return config{databaseURL: databaseURL, grpcAddr: grpcAddr}, nil
+	// El recolector de trazas tampoco tiene valor por defecto
+	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if otlpEndpoint == "" {
+		return config{}, fmt.Errorf("missing OTEL_EXPORTER_OTLP_ENDPOINT")
+	}
+
+	return config{databaseURL: databaseURL, grpcAddr: grpcAddr, otlpEndpoint: otlpEndpoint}, nil
 }
 
 // createDependencies monta el dominio sobre el pool y devuelve el handler gRPC

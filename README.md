@@ -12,7 +12,7 @@ A learning project: a Battle Royale simulator built as Go microservices, alongsi
 | `gen/`                     | Go code generated from `proto/` with `make proto-gen`. Never edited by hand.                                  |
 | `pkg/`                     | Shared infrastructure code (logger, database pool, service runtime). Never domain logic.                      |
 | `services/<name>/`         | One directory per service. `db/migrations` holds schema migrations and `db/seed` reference data.              |
-| `deploy/`                  | Local infrastructure: Docker Compose (Kafka, Redpanda Console, Postgres, Redis) and the Postgres init script. |
+| `deploy/`                  | Local infrastructure: Docker Compose (Kafka, Redpanda Console, Postgres, Redis, Jaeger) and the Postgres init script. |
 | `buf.yaml`, `buf.gen.yaml` | buf configuration: lint and breaking-change rules, and code generation.                                       |
 | `Makefile`                 | Entry point for every task. Run `make help` to list them.                                                     |
 
@@ -26,9 +26,11 @@ make migrate s=catalog   # apply catalog migrations and seed data
 make run s=catalog       # run a service locally
 ```
 
-| Service          | Address               |
-| ---------------- | --------------------- |
-| Kafka            | `localhost:9092`      |
-| Redpanda Console | http://localhost:8080 |
-| Postgres         | `localhost:5432`      |
-| Redis            | `localhost:6379`      |
+| Service          | Address                |
+| ---------------- | ---------------------- |
+| Kafka            | `localhost:9092`       |
+| Redpanda Console | http://localhost:8080  |
+| Postgres         | `localhost:5432`       |
+| Redis            | `localhost:6379`       |
+| Jaeger UI        | http://localhost:16686 |
+| Jaeger OTLP gRPC | `localhost:4317`       |

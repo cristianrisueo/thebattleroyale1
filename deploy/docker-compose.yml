@@ -140,6 +140,19 @@ services:
       retries: 5
       start_period: 10s
 
+  # ───────────────────────────────────────────────────────────────────────
+  # JAEGER · trazas distribuidas → http://localhost:16686
+  # Configuración all-in-one por defecto: recibe mensajes OTLP y guarda en memoria,
+  # así que las trazas se pierden al reiniciar el contenedor.
+  # ───────────────────────────────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/jaeger:2.11.0 # versión fijada: nunca latest
+    hostname: jaeger
+    container_name: jaeger
+    ports:
+      - "4317:4317" # OTLP gRPC: aquí exportan los servicios
+      - "16686:16686" # interfaz web
+
 volumes:
   kafka_data:
   postgres_data:

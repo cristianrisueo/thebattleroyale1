@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,7 +16,16 @@ const pingTimeout = 5 * time.Second
 // NewPool crea un pool y comprueba con un Ping que la base de datos responde
 func NewPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	// Valida la URL sin abrir todavía ninguna conexión
-	pool, err := pgxpool.New(ctx, url)
+	config, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("parsing database url: %w", err)
+	}
+
+	// Crea un span por consulta, colgado de la traza que venga en el ctx de la llamada
+	config.ConnConfig.Tracer = otelpgx.NewTracer()
+
+	// Prepara el pool con la configuración ya instrumentada
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("creating pool: %w", err)
 	}
