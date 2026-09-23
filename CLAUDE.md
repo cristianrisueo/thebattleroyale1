@@ -13,7 +13,21 @@ Monorepo de aprendizaje de microservicios en Go. El diseño se decide fuera de a
 ## Idioma
 
 - Inglés: código, identificadores, datos, logs y commits.
-- Español: comentarios en todos los ficheros (Go, SQL, `.proto`, YAML, Makefile). Breves: una única línea física por cada decisión no obvia, sin partir en varias líneas ni bloques tipo Parámetros/Retorno. Nada de explicar lo evidente.
+- Español: comentarios en todos los ficheros (Go, SQL, `.proto`, YAML, Makefile).
+
+## Comentarios
+
+Se escriben para quien lea el código dentro de seis meses sin recordar por qué se hizo así. Explican el porqué y el contrato, nunca lo que la línea ya dice.
+
+**En paquetes, tipos y funciones exportadas** pueden ocupar varias líneas y deben cubrir, cuando aplique:
+
+- Qué problema resuelve la pieza y por qué existe aquí y no en otro sitio.
+- El contrato con quien la usa: si bloquea, qué significa cada valor devuelto, en qué orden hay que llamar a las cosas.
+- Las trampas que no se ven leyendo el código: lo que provoca un pánico, lo que puede colgarse, lo que se queda abierto si falta una llamada.
+
+**Dentro de las funciones**, una única línea física por bloque de lógica, encima del bloque. Comenta cada bloque con lo que aporta o con la consecuencia de esa línea, no con su traducción al castellano. En un `select` o un `switch`, el comentario va en la rama que lo necesita, no encima del bloque entero.
+
+**Nunca**: comentarios que repiten la línea (`// incrementa i`), bloques tipo Parámetros/Retorno/Ejemplo, ni comentarios de relleno en líneas triviales.
 
 ## Repositorio
 

@@ -1,3 +1,10 @@
+// Catalog sirve el catálogo de alumnos, armas y localizaciones por gRPC.
+//
+// Este fichero es el único del servicio que conoce a la vez la configuración,
+// la base de datos y el servidor: el resto del código recibe ya montado lo que
+// necesita. Todo lo genérico vive en pkg/; aquí solo queda el cableado propio
+// de catalog.
+
 package main
 
 import (
@@ -12,20 +19,32 @@ import (
 	"github.com/cristianrisueo/thebattleroyale1/pkg/logger"
 )
 
-// shutdownTimeout es el margen para un apagado limpio del servidor gRPC.
+// shutdownTimeout es el margen que se le da al servidor gRPC para terminar las
+// RPC en curso antes de cortarlas en seco.
 const shutdownTimeout = 10 * time.Second
 
+// main es el punto de entrada del servicio catalog
 func main() {
+	// El logger se crea antes que nada para que hasta un fallo de config se vea en el log.
 	log := logger.New("catalog")
 
-	// run() separada de main() para que os.Exit no se salte el defer del pool.
+	// La lógica vive en run porque os.Exit no ejecuta los defer y el pool quedaría abierto.
 	if err := run(log); err != nil {
 		log.Error("startup failed", "error", err)
 		os.Exit(1)
 	}
 }
 
-// run lee la config, abre el pool y arranca el servidor gRPC.
+// run monta el servicio y bloquea hasta que termina de apagarse.
+//
+// El orden importa: cada dependencia se abre antes que quien la usa, y los
+// defer las cierran en orden inverso. Por eso el pool se cierra después de que
+// app.Run haya vuelto, cuando ya no queda ninguna RPC a medias que pudiera
+// encontrarse la base de datos cerrada debajo.
+//
+// La configuración se lee del entorno y no tiene valores por defecto: un
+// servicio que arranca contra la base de datos equivocada por un descuido es
+// peor que uno que no arranca.
 func run(log *slog.Logger) error {
 	ctx := context.Background()
 
@@ -41,7 +60,7 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("missing GRPC_ADDR")
 	}
 
-	// Pool compartido por todos los handlers gRPC del servicio.
+	// Un único pool para todo el servicio: lo comparten todos los handlers gRPC.
 	pool, err := database.NewPool(ctx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
@@ -50,8 +69,9 @@ func run(log *slog.Logger) error {
 	// Cierra el pool cuando el servidor gRPC termina.
 	defer pool.Close()
 
-	// Crea el servidor gRPC con el timeout de apagado ya fijado.
+	// Aún sin servicios propios registrados: eso llega con CatalogService.
 	grpcServer := app.NewGRPCServer(grpcAddr, log, shutdownTimeout)
 
+	// Bloquea hasta que llega una señal de parada y todos los componentes han recogido.
 	return app.Run(ctx, log, grpcServer)
 }
