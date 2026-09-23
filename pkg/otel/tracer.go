@@ -12,7 +12,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
-// New registra como global un TracerProvider que exporta las trazas por OTLP gRPC
+// NewTracer registra como global un TracerProvider que exporta las trazas por OTLP gRPC
 //
 // Param - ctx: Contexto de arranque del servicio, usado solo para crear el exportador
 // Param - serviceName: Nombre con el que aparecen las trazas del servicio en Jaeger

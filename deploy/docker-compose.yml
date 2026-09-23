@@ -152,6 +152,16 @@ services:
     ports:
       - "4317:4317" # OTLP gRPC: aquí exportan los servicios
       - "16686:16686" # interfaz web
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:14269/ || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 volumes:
   kafka_data:

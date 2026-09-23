@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// New crea el logger raíz de un servicio con su nombre en cada línea
+// NewLogger crea el logger raíz de un servicio con su nombre en cada línea
 func NewLogger(service string) *slog.Logger {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level()})
 	return slog.New(handler).With("service", service)
