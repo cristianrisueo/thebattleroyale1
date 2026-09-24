@@ -51,4 +51,4 @@ Los ficheros de `services/catalog/` son la referencia: cualquier código nuevo s
 - `gen/` se genera con `make proto-gen` y nunca se edita a mano.
 - Un servicio nunca importa `services/<otro>/internal/`. `pkg/` es solo infraestructura, nunca dominio.
 - Versiones siempre fijadas en imágenes Docker y dependencias. Nunca `latest`.
-- Si creas, renombras o eliminas un directorio de primer nivel o un fichero de configuración de la raíz, o cambias cómo se arranca el proyecto (targets de `make`, puertos, requisitos), actualiza `README.md` en el mismo cambio. No añadas detalle por debajo del primer nivel.
+- `README.md` contiene un mapa de todos los ficheros y directorios del proyecto, con una línea por cada uno. Si creas, renombras o eliminas cualquier fichero o directorio, actualiza ese mapa en el mismo cambio. También si cambias cómo se arranca el proyecto: targets de `make`, puertos, variables de entorno o requisitos. Quedan fuera del mapa `gen/` (basta una línea para el directorio) y los ficheros que ignora `.gitignore`.

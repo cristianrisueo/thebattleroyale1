@@ -6,15 +6,56 @@ A learning project: a Battle Royale simulator built as Go microservices, alongsi
 
 ## Repository layout
 
-| Path                       | Contents                                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `proto/`                   | Protobuf contracts, one versioned package per domain (`catalog/v1`). Source of truth for the gRPC APIs.       |
-| `gen/`                     | Go code generated from `proto/` with `make proto-gen`. Never edited by hand.                                  |
-| `pkg/`                     | Shared infrastructure code (logger, database pool, service runtime). Never domain logic.                      |
-| `services/<name>/`         | One directory per service. `db/migrations` holds schema migrations and `db/seed` reference data.              |
-| `deploy/`                  | Local infrastructure: Docker Compose (Kafka, Redpanda Console, Postgres, Redis, Jaeger) and the Postgres init script. |
-| `buf.yaml`, `buf.gen.yaml` | buf configuration: lint and breaking-change rules, and code generation.                                       |
-| `Makefile`                 | Entry point for every task. Run `make help` to list them.                                                     |
+```text
+.
+├── .gitignore                         # Build output, coverage files, .env and editor folders kept out of git
+├── CLAUDE.md                          # Working rules for Claude Code: language, comment style and repository conventions
+├── Makefile                           # Entry point for every task; run `make help` to list them
+├── README.md                          # This file: project overview, repository map and getting started
+├── buf.gen.yaml                       # buf code generation: protoc-gen-go and protoc-gen-go-grpc into gen/
+├── buf.yaml                           # buf module config: proto/ as the module, STANDARD lint and FILE breaking rules
+├── go.mod                             # Go module, dependencies and tools (buf, grpcurl, protoc plugins)
+├── go.sum                             # Dependency checksums
+├── deploy/                            # Local infrastructure
+│   ├── docker-compose.yml             # Kafka, Redpanda Console, Postgres, Redis and Jaeger with pinned versions
+│   └── postgres/                      # Postgres initialisation scripts, mounted into the container
+│       └── init.sql                   # Creates one user and database per service on first start
+├── gen/                               # Go code generated from proto/ with `make proto-gen`; never edited by hand
+├── pkg/                               # Shared infrastructure code, never domain logic
+│   ├── app/                           # Service runtime: startup and graceful shutdown of components
+│   │   ├── app.go                     # Component interface and Run, which stops everything on a signal or first failure
+│   │   └── grpc_server.go             # gRPC server as a Component, with health check and reflection
+│   ├── cache/                         # Redis client
+│   │   └── redis.go                   # Creates a traced Redis client, routes go-redis logs to slog and checks it with a Ping
+│   ├── database/                      # Postgres connection pool
+│   │   └── postgres.go                # Creates a traced pgx pool and checks it with a Ping
+│   ├── logger/                        # Logging
+│   │   └── logger.go                  # Root JSON slog logger with the service name, level from LOG_LEVEL
+│   └── otel/                          # Distributed tracing
+│       └── tracer.go                  # Registers the global TracerProvider exporting spans over OTLP gRPC
+├── proto/                             # Protobuf contracts, source of truth for the gRPC APIs
+│   └── catalog/                       # Catalog domain contracts
+│       └── v1/                        # Version 1 of the catalog API
+│           └── catalog.proto          # CatalogService: get and list students, weapons and locations
+└── services/                          # One directory per service
+    └── catalog/                       # Catalog service: students, weapons and locations reference data
+        ├── local.env                  # Environment for `make run s=catalog`: database, gRPC address, OTLP, Redis, cache TTL, log level
+        ├── cmd/                       # Service entry point
+        │   └── main.go                # Reads config, wires tracer, Postgres, Redis and domain, and runs the gRPC server
+        ├── db/                        # Database scripts applied with `make migrate s=catalog`
+        │   ├── migrations/            # Schema migrations
+        │   │   ├── 000001_create_catalog_tables.down.sql  # Drops the students, weapons and locations tables
+        │   │   └── 000001_create_catalog_tables.up.sql    # Creates the students, weapons and locations tables
+        │   └── seed/                  # Reference data, tracked in its own migrations table
+        │       ├── 000001_seed_catalog.down.sql           # Deletes the seed rows
+        │       └── 000001_seed_catalog.up.sql             # Inserts students, weapons and locations with fixed UUIDs
+        └── internal/                  # Domain code, private to the service
+            ├── cached_repository.go   # Cache-aside Repository in Redis in front of Postgres
+            ├── handler.go             # gRPC handler: maps requests, responses and domain errors to gRPC codes
+            ├── repository.go          # Repository interface and its Postgres implementation
+            ├── service.go             # Service interface and implementation, validates ids before the repository
+            └── types.go               # Domain types (Student, Weapon, Location) and domain errors
+```
 
 ## Getting started
 

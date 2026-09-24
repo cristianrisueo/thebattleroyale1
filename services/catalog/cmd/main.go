@@ -88,7 +88,7 @@ func run(log *slog.Logger) error {
 	defer pool.Close()
 
 	// Crea el cliente de redis
-	rdb, err := cache.NewClient(ctx, cfg.redisAddr)
+	rdb, err := cache.NewClient(ctx, cfg.redisAddr, log)
 	if err != nil {
 		return fmt.Errorf("connecting to redis: %w", err)
 	}
