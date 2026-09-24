@@ -1,0 +1,34 @@
+// Entidades del catálogo: alumnos, armas y localizaciones.
+// Definición única del vocabulario compartido. La usan la API de catalog y los eventos de arena, de modo que el
+// mismo alumno significa lo mismo en todo el sistema. Lo que entra aquí es estable: un campo que solo necesite un
+// servicio va en su propio contrato, no en este.
+
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/cristianrisueo/thebattleroyale1/gen/common/v1;commonv1";
+
+// Alumno participante: ID, nombre, fuerza, agilidad y resistencia
+message Student {
+  string id = 1; // UUID
+  string name = 2;
+  int32 strength = 3; // 0-100
+  int32 agility = 4; // 0-100
+  int32 stamina = 5; // 0-100
+}
+
+// Arma: ID, nombre, daño y probabilidad de acierto.
+message Weapon {
+  string id = 1; // UUID
+  string name = 2;
+  int32 damage = 3; // vida que resta por impacto, 0-100 (100 = muerte de un golpe)
+  int32 accuracy = 4; // 0-100
+}
+
+// Localización donde puede desarrollarse la batalla: ID, nombre y descripción.
+message Location {
+  string id = 1; // UUID
+  string name = 2;
+  string description = 3;
+}

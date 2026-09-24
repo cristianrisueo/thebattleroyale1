@@ -20,6 +20,8 @@ A learning project: a Battle Royale simulator built as Go microservices, alongsi
 │   ├── docker-compose.yml             # Kafka, Redpanda Console, Postgres, Redis and Jaeger with pinned versions
 │   └── postgres/                      # Postgres initialisation scripts, mounted into the container
 │       └── init.sql                   # Creates one user and database per service on first start
+├── docs/                              # Project documentation, in Spanish
+│   └── events.md                      # Event catalog: topics, keys, ordering guarantees and the fields of every event
 ├── gen/                               # Go code generated from proto/ with `make proto-gen`; never edited by hand
 ├── pkg/                               # Shared infrastructure code, never domain logic
 │   ├── app/                           # Service runtime: startup and graceful shutdown of components
@@ -33,10 +35,16 @@ A learning project: a Battle Royale simulator built as Go microservices, alongsi
 │   │   └── logger.go                  # Root JSON slog logger with the service name, level from LOG_LEVEL
 │   └── otel/                          # Distributed tracing
 │       └── tracer.go                  # Registers the global TracerProvider exporting spans over OTLP gRPC
-├── proto/                             # Protobuf contracts, source of truth for the gRPC APIs
-│   └── catalog/                       # Catalog domain contracts
-│       └── v1/                        # Version 1 of the catalog API
-│           └── catalog.proto          # CatalogService: get and list students, weapons and locations
+├── proto/                             # Protobuf contracts, source of truth for the gRPC APIs and Kafka events
+│   ├── arena/                         # Arena domain contracts
+│   │   └── v1/                        # Version 1 of the arena events
+│   │       └── events.proto           # BattleEvent envelope and the five battle events published to arena.battles
+│   ├── catalog/                       # Catalog domain contracts
+│   │   └── v1/                        # Version 1 of the catalog API
+│   │       └── catalog.proto          # CatalogService: get and list students, weapons and locations
+│   └── common/                        # Entities shared by more than one contract
+│       └── v1/                        # Version 1 of the shared entities
+│           └── catalog.proto          # Student, Weapon and Location, used by both the catalog API and arena events
 └── services/                          # One directory per service
     └── catalog/                       # Catalog service: students, weapons and locations reference data
         ├── local.env                  # Environment for `make run s=catalog`: database, gRPC address, OTLP, Redis, cache TTL, log level

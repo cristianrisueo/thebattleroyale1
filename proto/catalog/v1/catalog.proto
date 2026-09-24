@@ -1,33 +1,13 @@
+// API del servicio catalog: consulta de alumnos, armas y localizaciones.
+// Las entidades que devuelve están definidas en common/v1, porque también viajan en los eventos de arena.
+
 syntax = "proto3";
 
-// Catálogo: alumnos, armas y localizaciones del juego.
 package catalog.v1;
 
+import "common/v1/catalog.proto";
+
 option go_package = "github.com/cristianrisueo/thebattleroyale1/gen/catalog/v1;catalogv1";
-
-// Alumno participante: ID, nombre, fuerza, agilidad y resistencia
-message Student {
-  string id = 1; // UUID
-  string name = 2;
-  int32 strength = 3; // 0-100
-  int32 agility = 4; // 0-100
-  int32 stamina = 5; // 0-100
-}
-
-// Arma: ID, nombre, daño y probabilidad de acierto.
-message Weapon {
-  string id = 1; // UUID
-  string name = 2;
-  int32 damage = 3; // vida que resta por impacto, 0-100 (100 = muerte de un golpe)
-  int32 accuracy = 4; // 0-100
-}
-
-// Localización donde puede desarrollarse la batalla: ID, nombre y descripción.
-message Location {
-  string id = 1; // UUID
-  string name = 2;
-  string description = 3;
-}
 
 // Petición para obtener un alumno por id.
 message GetStudentRequest {
@@ -36,7 +16,7 @@ message GetStudentRequest {
 
 // Respuesta con el alumno solicitado.
 message GetStudentResponse {
-  Student student = 1;
+  common.v1.Student student = 1;
 }
 
 // Petición para listar todos los alumnos.
@@ -44,7 +24,7 @@ message ListStudentsRequest {}
 
 // Respuesta con todos los alumnos.
 message ListStudentsResponse {
-  repeated Student students = 1;
+  repeated common.v1.Student students = 1;
 }
 
 // Petición para obtener un arma por id.
@@ -54,7 +34,7 @@ message GetWeaponRequest {
 
 // Respuesta con el arma solicitada.
 message GetWeaponResponse {
-  Weapon weapon = 1;
+  common.v1.Weapon weapon = 1;
 }
 
 // Petición para listar todas las armas.
@@ -62,7 +42,7 @@ message ListWeaponsRequest {}
 
 // Respuesta con todas las armas.
 message ListWeaponsResponse {
-  repeated Weapon weapons = 1;
+  repeated common.v1.Weapon weapons = 1;
 }
 
 // Petición para obtener una localización por id.
@@ -72,7 +52,7 @@ message GetLocationRequest {
 
 // Respuesta con la localización solicitada.
 message GetLocationResponse {
-  Location location = 1;
+  common.v1.Location location = 1;
 }
 
 // Petición para listar todas las localizaciones.
@@ -80,7 +60,7 @@ message ListLocationsRequest {}
 
 // Respuesta con todas las localizaciones.
 message ListLocationsResponse {
-  repeated Location locations = 1;
+  repeated common.v1.Location locations = 1;
 }
 
 // Servicio con todos los métodos de catálogo

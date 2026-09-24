@@ -5,9 +5,9 @@ Contrato de los eventos que circulan por Kafka: qué significa cada uno, qué ll
 ## Convenciones
 
 - **Los eventos son hechos consumados.** Se nombran en pasado (`BattleStarted`) y nunca piden nada a nadie. Las peticiones entre servicios son comandos y van en otros topics.
-- **Protobuf, un tipo de mensaje por topic.** Cada topic transporta un sobre con un `oneof` que contiene el evento concreto. `buf breaking` vigila su evolución.
+- **Protobuf, un tipo de mensaje por topic.** Cada topic transporta un envelope con un `oneof` que contiene el evento concreto. `buf breaking` vigila su evolución.
 - **Cada evento se entiende solo.** Un consumidor puede empezar a leer a mitad de una batalla, tras un reinicio o un rebalanceo, sin haber visto los eventos anteriores. Por eso los eventos llevan los nombres además de los ids.
-- **Los contratos de eventos no importan contratos de otros servicios.** Los datos del catálogo se copian en mensajes propios de `arena.v1`. Si `catalog.v1` cambia, los eventos no cambian.
+- **Las entidades del catálogo se definen una sola vez en `common.v1`.** Un alumno significa lo mismo en toda la aplicación, así que `catalog.v1` y `arena.v1` importan las mismas definiciones. Los eventos comparten vocabulario con la API de `catalog`, no dependen de ella.
 - **Solo cambios compatibles.** Se pueden añadir campos y añadir variantes al `oneof`. Nunca se reutiliza ni se cambia el número o el tipo de un campo.
 - **Los consumidores ignoran lo que no conocen:** campos nuevos y tipos de evento nuevos. Así un productor puede publicar un evento nuevo sin romper a quien no lo espera.
 - **Entrega al menos una vez.** Un consumidor puede recibir el mismo evento más de una vez y debe deduplicar por `event_id`.
@@ -38,7 +38,7 @@ Dentro de una batalla, el orden es siempre este:
 - `sequence` empieza en 1 en `BattleScheduled` y aumenta de uno en uno, sin huecos. Un hueco o una repetición en el consumidor delatan un problema.
 - Entre batallas distintas no hay orden garantizado.
 
-## Sobre: `BattleEvent`
+## Envelope: `BattleEvent`
 
 | Campo         | Tipo                        | Contenido                                                                    |
 | ------------- | --------------------------- | ---------------------------------------------------------------------------- |
@@ -54,9 +54,9 @@ Dentro de una batalla, el orden es siempre este:
 | Mensaje      | Campos                                         | Uso                                                                            |
 | ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------ |
 | `Fighter`    | `student` (`Student`), `weapon` (`Weapon`)     | Participante completo, solo en `BattleScheduled`                               |
-| `Student`    | `id`, `name`, `strength`, `agility`, `stamina` | Copia del alumno tal y como estaba al programar la batalla                     |
-| `Weapon`     | `id`, `name`, `damage`, `accuracy`             | Copia del arma asignada                                                        |
-| `Location`   | `id`, `name`, `description`                    | Copia de la localización                                                       |
+| `Student`    | `id`, `name`, `strength`, `agility`, `stamina` | Entidad de `common.v1`, congelada al programar la batalla                      |
+| `Weapon`     | `id`, `name`, `damage`, `accuracy`             | Entidad de `common.v1`: el arma asignada                                       |
+| `Location`   | `id`, `name`, `description`                    | Entidad de `common.v1`                                                         |
 | `FighterRef` | `id`, `name`                                   | Referencia a un participante en los eventos posteriores. `id` es el del alumno |
 
 ## Eventos
@@ -76,7 +76,7 @@ Dentro de una batalla, el orden es siempre este:
 
 ### `BattleStarted`
 
-La batalla ha empezado. A partir de aquí no se acepta ninguna apuesta. No lleva campos: el sobre ya dice qué batalla y cuándo.
+La batalla ha empezado. A partir de aquí no se acepta ninguna apuesta. No lleva campos: el envelope ya dice qué batalla y cuándo.
 
 - `betting` cierra el mercado.
 - `narrator` anuncia el inicio.
@@ -91,8 +91,8 @@ Un participante ha atacado a otro, con acierto o sin él.
 | `target`        | `FighterRef` | A quién ataca                           |
 | `weapon_name`   | `string`     | Arma usada                              |
 | `hit`           | `bool`       | Si el ataque acertó                     |
-| `damage`        | `int32`      | Vida restada. 0 si falló                |
-| `target_health` | `int32`      | Vida del objetivo tras el ataque, 0-100 |
+| `damage`        | `int32`      | Vida restada al objetivo: nunca más de la que le quedaba. 0 si falló |
+| `target_health` | `int32`      | Vida del objetivo tras el ataque, 0-100. La que ya tenía si el ataque falló |
 
 - `narrator` lo narra.
 

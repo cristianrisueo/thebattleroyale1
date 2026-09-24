@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	catalogv1 "github.com/cristianrisueo/thebattleroyale1/gen/catalog/v1"
+	commonv1 "github.com/cristianrisueo/thebattleroyale1/gen/common/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -58,7 +59,7 @@ func (ch *CatalogHandler) ListStudents(ctx context.Context, _ *catalogv1.ListStu
 	}
 
 	// Crea un array del tamaño de los estudiantes recibidos de tipo mensaje students protobuf
-	out := make([]*catalogv1.Student, 0, len(students))
+	out := make([]*commonv1.Student, 0, len(students))
 
 	// Añade cada estudainte traducido de nuestro dominio a tipo protobuf
 	for _, s := range students {
@@ -102,7 +103,7 @@ func (ch *CatalogHandler) ListWeapons(ctx context.Context, _ *catalogv1.ListWeap
 	}
 
 	// Crea un array del tamaño de las armas recibidas de tipo mensaje weapons protobuf
-	out := make([]*catalogv1.Weapon, 0, len(weapons))
+	out := make([]*commonv1.Weapon, 0, len(weapons))
 
 	// Añade cada arma traducida de nuestro dominio a tipo protobuf
 	for _, w := range weapons {
@@ -146,7 +147,7 @@ func (ch *CatalogHandler) ListLocations(ctx context.Context, _ *catalogv1.ListLo
 	}
 
 	// Crea un array del tamaño de las localizaciones recibidas de tipo mensaje locations protobuf
-	out := make([]*catalogv1.Location, 0, len(locations))
+	out := make([]*commonv1.Location, 0, len(locations))
 
 	// Añade cada localización traducida de nuestro dominio a tipo protobuf
 	for _, l := range locations {
@@ -182,9 +183,9 @@ func toStatus(err error) error {
 // studentToProto convierte un alumno de dominio a su mensaje protobuf
 //
 // Param - s: Alumno del dominio
-// Returns - catalogv1.Student: El mismo alumno como mensaje protobuf
-func studentToProto(s Student) *catalogv1.Student {
-	return &catalogv1.Student{
+// Returns - commonv1.Student: El mismo alumno como mensaje protobuf
+func studentToProto(s Student) *commonv1.Student {
+	return &commonv1.Student{
 		Id:       s.ID,
 		Name:     s.Name,
 		Strength: s.Strength,
@@ -196,9 +197,9 @@ func studentToProto(s Student) *catalogv1.Student {
 // weaponToProto convierte un arma del dominio a su mensaje protobuf
 //
 // Param - w: Arma del dominio
-// Returns - catalogv1.Weapon: La misma arma como mensaje protobuf
-func weaponToProto(w Weapon) *catalogv1.Weapon {
-	return &catalogv1.Weapon{
+// Returns - commonv1.Weapon: La misma arma como mensaje protobuf
+func weaponToProto(w Weapon) *commonv1.Weapon {
+	return &commonv1.Weapon{
 		Id:       w.ID,
 		Name:     w.Name,
 		Damage:   w.Damage,
@@ -209,9 +210,9 @@ func weaponToProto(w Weapon) *catalogv1.Weapon {
 // locationToProto convierte una localización del dominio a su mensaje protobuf
 //
 // Param - l: Localización del dominio
-// Returns - catalogv1.Location: El misma localización como mensaje protobuf
-func locationToProto(l Location) *catalogv1.Location {
-	return &catalogv1.Location{
+// Returns - commonv1.Location: El misma localización como mensaje protobuf
+func locationToProto(l Location) *commonv1.Location {
+	return &commonv1.Location{
 		Id:          l.ID,
 		Name:        l.Name,
 		Description: l.Description,

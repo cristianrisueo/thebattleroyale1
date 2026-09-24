@@ -1,0 +1,79 @@
+// Eventos de batalla que publica arena en el topic arena.battles. El significado de cada uno está en docs/events.md.
+// Estos mensajes se comunican exclusivamente por Kafka, pero usamos protobuf para tener un estandar de serialización
+
+syntax = "proto3";
+
+package arena.v1;
+
+import "common/v1/catalog.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cristianrisueo/thebattleroyale1/gen/arena/v1;arenav1";
+
+// Envelope común de todos los eventos: el único tipo de mensaje del topic. Realmente lo que el producen envía a Kafka
+// siempre será un mensaje de tipo BattleEvent, donde el payload será uno de los 5 posibles eventos.
+message BattleEvent {
+  string event_id = 1; // UUID único del evento, clave de idempotencia
+  string battle_id = 2; // UUID de la batalla
+  int64 sequence = 3; // posición de un evento en la batalla, empieza en 1 y sin huecos
+  google.protobuf.Timestamp occurred_at = 4; // timestamp en el que se registra el evento
+  google.protobuf.Duration battle_time = 5; // tiempo en segundos desde el inicio de la batalla en el que se registra el evento (cero antes de BattleStarted)
+
+  // Evento concreto
+  oneof payload {
+    BattleScheduled battle_scheduled = 10;
+    BattleStarted battle_started = 11;
+    AttackResolved attack_resolved = 12;
+    StudentEliminated student_eliminated = 13;
+    BattleFinished battle_finished = 14;
+  }
+}
+
+//* Eventos concretos
+
+// Batalla programada con sus datos congelados: Ubicacion, participantes y timestamp de inicio
+message BattleScheduled {
+  common.v1.Location location = 1;
+  repeated Fighter fighters = 2; // mínimo 2
+  google.protobuf.Timestamp starts_at = 3; // inicio previsto de la batalla
+}
+
+// Batalla iniciada, ya no se aceptan apuestas. Este evento no lleva campos, solo da inicio a la batalla
+message BattleStarted {}
+
+// Ataque de un participante a otro, con acierto o sin él.
+message AttackResolved {
+  FighterRef attacker = 1;
+  FighterRef target = 2;
+  string weapon_name = 3;
+  bool hit = 4; // true si acierta
+  int32 damage = 5; // vida restada al objetivo, nunca más de la que le quedaba; 0 si falló
+  int32 target_health = 6; // vida del objetivo tras el ataque, 0-100; la que ya tenía si el ataque falló
+}
+
+// Participante eliminado: su vida ha llegado a 0. Va justo detrás del AttackResolved que lo causó.
+message StudentEliminated {
+  FighterRef student = 1;
+  FighterRef eliminated_by = 2;
+  int32 remaining = 3; // participantes que siguen en pie
+}
+
+// Batalla terminada con un único superviviente.
+message BattleFinished {
+  FighterRef winner = 1;
+}
+
+//* Elementos de los eventos
+
+// Participante completo: alumno y arma asignada. Solo aparece en BattleScheduled, congelados al programar la batalla.
+message Fighter {
+  common.v1.Student student = 1;
+  common.v1.Weapon weapon = 2;
+}
+
+// Referencia a un participante en los eventos posteriores a BattleScheduled: ID y nombre
+message FighterRef {
+  string id = 1; // UUID del alumno
+  string name = 2;
+}
