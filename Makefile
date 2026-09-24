@@ -3,7 +3,7 @@
 COMPOSE_FILE := deploy/docker-compose.yml
 MIGRATE_IMAGE := migrate/migrate:v4.19.1
 
-.PHONY: help fmt vet test tidy up down clean ps logs proto-lint proto-fmt proto-gen migrate run
+.PHONY: help fmt vet test tidy up down clean ps logs topics proto-lint proto-fmt proto-gen migrate run
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -20,8 +20,9 @@ test: ## Run tests
 tidy: ## Tidy go.mod dependencies
 	go mod tidy
 
-up: ## Start local infrastructure (Docker Compose)
+up: ## Start local infrastructure and create topics
 	docker compose -f $(COMPOSE_FILE) up -d --wait
+	$(MAKE) topics
 
 down: ## Stop local infrastructure, keep volumes
 	docker compose -f $(COMPOSE_FILE) down
@@ -34,6 +35,17 @@ ps: ## Show local infrastructure container status
 
 logs: ## Follow container logs (use s=<service> for one service)
 	docker compose -f $(COMPOSE_FILE) logs -f $(s)
+
+# Se crean a mano porque Kafka tiene desactivada la creación automática de topics.
+# 3 particiones: el orden solo se garantiza dentro de una, y con varias se comprueba que la clave reparte bien y hay particiones para varios consumidores.
+topics: ## Create Kafka topics (idempotent)
+	docker compose -f $(COMPOSE_FILE) exec -T kafka \
+		/opt/kafka/bin/kafka-topics.sh \
+		--bootstrap-server kafka:19092 \
+		--create --if-not-exists \
+		--topic arena.battles \
+		--partitions 3 \
+		--replication-factor 1
 
 proto-lint: ## Lint proto files
 	go tool buf lint

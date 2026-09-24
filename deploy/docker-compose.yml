@@ -85,10 +85,10 @@ services:
   # Topics, particiones, mensajes con clave y offset, consumer groups y lag.
   # Funciona con cualquier Kafka, no solo con Redpanda.
   # ───────────────────────────────────────────────────────────────────────
-  console:
+  redpanda-console:
     image: docker.redpanda.com/redpandadata/console:v3.12.0
-    hostname: console
-    container_name: console
+    hostname: redpanda-console
+    container_name: redpanda-console
     depends_on:
       kafka:
         condition: service_healthy # espera al healthcheck, no solo al arranque

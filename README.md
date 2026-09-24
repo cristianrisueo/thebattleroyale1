@@ -71,6 +71,7 @@ Requirements: Go 1.27 and Docker.
 
 ```sh
 make up                  # start the local infrastructure
+make topics              # create Kafka topics (already run by `make up`)
 make migrate s=catalog   # apply catalog migrations and seed data
 make run s=catalog       # run a service locally
 ```
